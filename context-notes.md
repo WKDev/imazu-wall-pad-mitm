@@ -57,6 +57,13 @@
 - `python tools/capture_ev.py <EW11_IP>` → 60초, 10/30/50초쯤 EV 버튼 누름.
 - 결과 `tools/ev_capture.log` 분석 → device 34 SCAN/STATUS 패턴 확정.
 
+## 현장 검증 (보드 배선 후)
+- OTA(WiFiManager 2.0.17 /update 페이지 또는 espota)로 무선 플래시 성공. IP 192.168.0.96.
+- **핵심 버그: DEVICE_TIMEOUT_MS=60 너무 짧음.** 조명/EV/콘센트는 응답이 ~70-100ms로 느려 전부 타임아웃 누락, 환기(빠름)만 잡혔음. 게다가 deviceTransact가 다음 트랜잭션 시작 시 버퍼를 flush해 늦은 응답이 junk로 버려짐 → 영영 못 잡음. **250ms로 올려 해결.**
+- 해결 후: LIGHT/OUTLET/AWAY/FAN 캐시 정상, **EV 터널 ->WP 중계 정상**. THERMO만 무응답(원본 캡처에서도 그러함, 해당 주소에 기기 없음).
+- 진단 도구: telnet 23 프레임 로그(WP-> ->WP DEV~), 3초 raw 바이트 하트비트, 웹 상태(raw wp/dev 카운터).
+- 남은 튜닝: 무응답 기기(THERMO) 250ms 스톨 → negative cache로 완화 검토.
+
 ## 열린 질문 (캡처로 해소됨)
 - ~~월패드 34 폴링 SUB/주기~~ → sub=10, ≈2/s. 해결.
 - ~~버튼 눌림 페이로드~~ → STATUS S 00→06. 해결.
