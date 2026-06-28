@@ -1,0 +1,4 @@
+.pio/
+.vscode/
+tools/ev_capture.log
+tools/__pycache__/
