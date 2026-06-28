@@ -14,6 +14,7 @@ static constexpr int UART_RX_BUFFER = 512;        // 죽은 기기 대기 중 FI
 
 static constexpr uint16_t HA_PORT = 8899;         // EW11 호환 (HA 연결, CONF_HOST=ESP32)
 static constexpr uint16_t TELNET_PORT = 23;       // 로그/프레임 탭 스트림
+static constexpr const char* OTA_HOSTNAME = "imazu-mitm";  // OTA/mDNS 이름
 
 // 프로토콜 상수
 static constexpr uint8_t DEV_EV = 0x34;           // 엘리베이터 — 투명 터널 대상

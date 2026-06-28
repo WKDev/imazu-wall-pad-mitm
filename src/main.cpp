@@ -1,6 +1,7 @@
 // ESP32 MITM 프록시 진입점: WiFi 프로비저닝, core 분리, 서버 기동
 #include <Arduino.h>
 #include <WiFiManager.h>
+#include <ArduinoOTA.h>
 #include "config.h"
 #include "rs485_bus.h"
 #include "proxy.h"
@@ -24,6 +25,14 @@ void setup() {
   }
   logLine(String("WiFi OK: ") + WiFi.localIP().toString());
 
+  // OTA — 이후 업데이트는 USB 없이 WiFi로 (pio run -e ota -t upload)
+  ArduinoOTA.setHostname(OTA_HOSTNAME);
+  ArduinoOTA.onStart([]() { logLine("OTA 시작 — 업데이트 중"); });
+  ArduinoOTA.onEnd([]() { logLine("OTA 완료 — 재부팅"); });
+  ArduinoOTA.onError([](ota_error_t e) { logLine(String("OTA 에러: ") + e); });
+  ArduinoOTA.begin();
+  logLine(String("OTA ready: ") + OTA_HOSTNAME + ".local");
+
   haServerInit();
 
   // 타이밍 크리티컬한 버스/프록시는 core0 전용 태스크로 격리(WiFi 간섭 차단)
@@ -32,6 +41,7 @@ void setup() {
 
 void loop() {
   // core1: 네트워킹/디버그
+  ArduinoOTA.handle();
   haServerLoop();
   debugLoop();
   delay(1);
