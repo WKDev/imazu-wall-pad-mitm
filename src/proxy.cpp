@@ -49,9 +49,12 @@ static void learnPoll(const Frame& scan) {
 }
 
 void handleMasterFrame(const Frame& f, const Respond& respond, bool allowEv) {
-  // --- EV: 양방향 투명 터널 (캐시하지 않음, 동적 데이터) ---
+  (void)allowEv;
+  // --- EV: 양방향 투명 터널 ---
+  // 월패드 poll, HA의 호출 CHANGE(01340241100600) 모두 그대로 EV 모듈로 전달.
+  // 모듈이 CHANGE 06을 받으면 STATUS가 06이 되고, 다음 월패드 poll(역시 터널)이
+  // 그 06을 받아 단지 LAN으로 호출 송출. 가짜 주입 없이 모듈이 진짜 호출함.
   if (f.dev() == DEV_EV) {
-    if (!allowEv) return;                    // HA는 EV 미관여
     Frame reply;
     if (deviceTransact(f, reply, DEVICE_TIMEOUT_MS)) respond(reply);
     return;
