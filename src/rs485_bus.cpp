@@ -5,6 +5,8 @@
 static FrameReader wpReader;
 static FrameReader devReader;
 static uint32_t lastWpMs = 0;
+static volatile uint32_t rawWp_ = 0;
+static volatile uint32_t rawDev_ = 0;
 
 void busInit() {
   Serial1.setRxBufferSize(UART_RX_BUFFER);
@@ -15,7 +17,9 @@ void busInit() {
 
 bool readWallpadFrame(Frame& out) {
   while (Serial2.available()) {
-    if (wpReader.push((uint8_t)Serial2.read(), out)) {
+    uint8_t b = (uint8_t)Serial2.read();
+    rawWp_++;
+    if (wpReader.push(b, out)) {
       lastWpMs = millis();
       return true;
     }
@@ -32,7 +36,9 @@ bool writeWallpad(const Frame& f) {
 
 bool readDeviceFrame(Frame& out) {
   while (Serial1.available()) {
-    if (devReader.push((uint8_t)Serial1.read(), out)) return true;
+    uint8_t b = (uint8_t)Serial1.read();
+    rawDev_++;
+    if (devReader.push(b, out)) return true;
   }
   return false;
 }
@@ -58,3 +64,6 @@ bool deviceTransact(const Frame& req, Frame& reply, uint32_t timeoutMs) {
 }
 
 uint32_t wallpadIdleMs() { return millis() - lastWpMs; }
+
+uint32_t busRawWallpadBytes() { return rawWp_; }
+uint32_t busRawDeviceBytes() { return rawDev_; }

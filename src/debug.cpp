@@ -2,6 +2,7 @@
 #include "debug.h"
 #include "config.h"
 #include "proxy.h"
+#include "rs485_bus.h"
 #include <WiFi.h>
 #include <WebServer.h>
 
@@ -22,6 +23,8 @@ static void handleRoot() {
   p += "wifi rssi : " + String(WiFi.RSSI()) + " dBm\n";
   p += "free heap : " + String(ESP.getFreeHeap()) + "\n";
   p += "frames    : " + String(frameCount_) + "\n";
+  p += "raw wp by : " + String(busRawWallpadBytes()) + "  (월패드 버스 수신 바이트)\n";
+  p += "raw dev by: " + String(busRawDeviceBytes()) + "  (기기 버스 수신 바이트)\n";
   p += "cache ent : " + String(cacheCount()) + "\n";
   p += "poll tgts : " + String(pollCount()) + "\n";
   p += "</pre><p>telnet " + WiFi.localIP().toString() + " 23 for live frames</p>";
@@ -74,6 +77,16 @@ void debugLoop() {
     Serial.println(m.text);
     for (int i = 0; i < MAX_TELNET; i++)
       if (tclients_[i] && tclients_[i].connected()) tclients_[i].println(m.text);
+  }
+
+  // 3초마다 raw 바이트 하트비트 (프레임 0이어도 물리계층 진단 가능)
+  static uint32_t lastBeat = 0;
+  if (millis() - lastBeat > 3000) {
+    lastBeat = millis();
+    logLine(String("[stat] raw wp=") + busRawWallpadBytes() +
+            " dev=" + busRawDeviceBytes() +
+            " frames=" + frameCount_ +
+            " polls=" + pollCount());
   }
 
   web_.handleClient();

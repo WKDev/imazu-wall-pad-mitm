@@ -14,3 +14,7 @@ bool writeDevice(const Frame& f);
 bool deviceTransact(const Frame& req, Frame& reply, uint32_t timeoutMs);
 
 uint32_t wallpadIdleMs();            // 마지막 월패드 수신 이후 경과(ms)
+
+// 진단용 raw 바이트 카운터 (파싱 성공 여부와 무관하게 수신 총량)
+uint32_t busRawWallpadBytes();
+uint32_t busRawDeviceBytes();
