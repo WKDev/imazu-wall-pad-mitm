@@ -22,5 +22,5 @@ static constexpr uint8_t CMD_SCAN = 0x01;
 static constexpr uint8_t CMD_CHANGE = 0x02;
 static constexpr uint8_t CMD_STATUS = 0x04;
 
-static constexpr uint32_t DEVICE_TIMEOUT_MS = 60;     // 기기 응답 대기 (실측 ~6ms)
+static constexpr uint32_t DEVICE_TIMEOUT_MS = 250;    // 기기 응답 대기 (조명/EV는 ~70-100ms로 느림)
 static constexpr uint32_t WALLPAD_IDLE_MS = 30;       // 이만큼 조용하면 갱신 폴 1스텝
