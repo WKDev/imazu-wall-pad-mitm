@@ -18,7 +18,7 @@ struct Frame {
   uint16_t key() const { return (uint16_t(dev()) << 8) | sub(); }
 
   bool valid() const;
-  String hex() const;
+  void hexTo(char* out, uint8_t cap) const;  // 힙 무할당: 고정 버퍼에 직접 hex 기록
 };
 
 // XOR 체크섬: 인덱스 [0 .. len-3] (CK·TAIL 제외)

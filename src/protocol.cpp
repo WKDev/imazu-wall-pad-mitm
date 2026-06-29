@@ -14,15 +14,14 @@ bool Frame::valid() const {
   return data[len - 2] == frameChecksum(data, len);
 }
 
-String Frame::hex() const {
+void Frame::hexTo(char* out, uint8_t cap) const {
   static const char* H = "0123456789abcdef";
-  String s;
-  s.reserve(len * 2);
-  for (uint8_t i = 0; i < len; i++) {
-    s += H[data[i] >> 4];
-    s += H[data[i] & 0x0F];
+  uint8_t j = 0;
+  for (uint8_t i = 0; i < len && j + 2 < cap; i++) {
+    out[j++] = H[data[i] >> 4];
+    out[j++] = H[data[i] & 0x0F];
   }
-  return s;
+  out[j] = 0;
 }
 
 bool FrameReader::push(uint8_t b, Frame& out) {

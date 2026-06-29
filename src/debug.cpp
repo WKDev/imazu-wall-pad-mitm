@@ -15,6 +15,8 @@ static WiFiServer telnet_(TELNET_PORT);
 static WiFiClient tclients_[MAX_TELNET];
 static WebServer web_(80);
 static bool serversUp_ = false;
+// core1(debugLoop)이 갱신, core0(tapFrame)이 읽음 — 텔넷 소비자 없으면 프레임 포맷 생략
+static volatile bool telnetActive_ = false;
 
 static void handleRoot() {
   String p = "<html><head><meta charset=utf-8><title>imazu-mitm</title></head><body>";
@@ -25,6 +27,7 @@ static void handleRoot() {
   p += "frames    : " + String(frameCount_) + "\n";
   p += "raw wp by : " + String(busRawWallpadBytes()) + "  (월패드 버스 수신 바이트)\n";
   p += "raw dev by: " + String(busRawDeviceBytes()) + "  (기기 버스 수신 바이트)\n";
+  p += "max alloc : " + String(ESP.getMaxAllocHeap()) + "  (최대 연속 블록 — 단편화 지표)\n";
   p += "cache ent : " + String(cacheCount()) + "\n";
   p += "poll tgts : " + String(pollCount()) + "\n";
   p += "</pre><p>telnet " + WiFi.localIP().toString() + " 23 for live frames</p>";
@@ -36,17 +39,24 @@ void debugInit() {
   logQ_ = xQueueCreate(64, sizeof(LogMsg));
 }
 
-void logLine(const String& s) {
+void logLine(const char* s) {
   if (!logQ_) return;
   LogMsg m;
-  strncpy(m.text, s.c_str(), sizeof(m.text) - 1);
+  strncpy(m.text, s, sizeof(m.text) - 1);
   m.text[sizeof(m.text) - 1] = 0;
   xQueueSend(logQ_, &m, 0);   // 가득 차면 버림(논블로킹)
 }
 
+void logLine(const String& s) { logLine(s.c_str()); }
+
 void tapFrame(const char* dir, const Frame& f) {
-  frameCount_++;
-  logLine(String(dir) + " " + f.hex());
+  frameCount_++;                       // 통계 카운터는 항상 갱신
+  if (!telnetActive_) return;          // 라이브 프레임 소비자(텔넷) 없으면 포맷 생략
+  char buf[100];
+  int n = snprintf(buf, sizeof(buf), "%s ", dir);
+  if (n < 0 || n >= (int)sizeof(buf)) return;
+  f.hexTo(buf + n, sizeof(buf) - n);   // 힙 무할당: 스택 버퍼에 직접 hex
+  logLine(buf);
 }
 
 void debugLoop() {
@@ -72,6 +82,12 @@ void debugLoop() {
     if (!placed) telnet_.available().stop();
   }
 
+  // 텔넷 소비자 유무를 core0에 알림(프레임 포맷 게이트)
+  bool anyTelnet = false;
+  for (int i = 0; i < MAX_TELNET; i++)
+    if (tclients_[i] && tclients_[i].connected()) { anyTelnet = true; break; }
+  telnetActive_ = anyTelnet;
+
   LogMsg m;
   while (xQueueReceive(logQ_, &m, 0) == pdTRUE) {
     Serial.println(m.text);
@@ -80,13 +96,16 @@ void debugLoop() {
   }
 
   // 3초마다 raw 바이트 하트비트 (프레임 0이어도 물리계층 진단 가능)
+  // maxalloc(최대 연속 블록)을 함께 찍어 단편화 추세를 telnet/serial에서 관측
   static uint32_t lastBeat = 0;
   if (millis() - lastBeat > 3000) {
     lastBeat = millis();
-    logLine(String("[stat] raw wp=") + busRawWallpadBytes() +
-            " dev=" + busRawDeviceBytes() +
-            " frames=" + frameCount_ +
-            " polls=" + pollCount());
+    char buf[100];
+    snprintf(buf, sizeof(buf), "[stat] raw wp=%lu dev=%lu frames=%lu polls=%d heap=%lu maxalloc=%lu",
+             (unsigned long)busRawWallpadBytes(), (unsigned long)busRawDeviceBytes(),
+             (unsigned long)frameCount_, pollCount(),
+             (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getMaxAllocHeap());
+    logLine(buf);
   }
 
   web_.handleClient();
