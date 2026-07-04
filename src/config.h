@@ -16,6 +16,12 @@ static constexpr uint16_t HA_PORT = 8899;         // EW11 호환 (HA 연결, CON
 static constexpr uint16_t TELNET_PORT = 23;       // 로그/프레임 탭 스트림
 static constexpr const char* OTA_HOSTNAME = "imazu-mitm";  // OTA/mDNS 이름
 
+// 운영 안정화: 매일 한국시간 03:00 정각에 1회 재부팅.
+static constexpr int DAILY_REBOOT_HOUR = 3;
+static constexpr int DAILY_REBOOT_MINUTE = 0;
+static constexpr long KST_UTC_OFFSET_SECONDS = 9L * 60L * 60L;
+static constexpr uint32_t DAILY_REBOOT_FALLBACK_MS = 24UL * 60UL * 60UL * 1000UL;
+
 // 프로토콜 상수
 static constexpr uint8_t DEV_EV = 0x34;           // 엘리베이터 — 투명 터널 대상
 static constexpr uint8_t CMD_SCAN = 0x01;

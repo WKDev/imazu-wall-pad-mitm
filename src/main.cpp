@@ -2,13 +2,25 @@
 #include <Arduino.h>
 #include <WiFiManager.h>
 #include <ArduinoOTA.h>
+#include <Preferences.h>
+#include <time.h>
 #include "config.h"
 #include "rs485_bus.h"
 #include "proxy.h"
 #include "ha_server.h"
 #include "debug.h"
 
+static constexpr time_t VALID_NTP_EPOCH = 1704067200;  // 2024-01-01 UTC
+static constexpr int DAILY_REBOOT_WINDOW_SECONDS = 60;
+static constexpr uint32_t REBOOT_LOG_FLUSH_MS = 1500;
+
+static Preferences rebootPrefs;
+static bool rebootPrefsReady = false;
+static int lastRebootDay = -1;
+
 static void proxyTask(void*);
+static void scheduledRebootInit();
+static void scheduledRebootLoop();
 
 void setup() {
   Serial.begin(115200);
@@ -24,6 +36,7 @@ void setup() {
     ESP.restart();
   }
   logLine(String("WiFi OK: ") + WiFi.localIP().toString());
+  scheduledRebootInit();
 
   // OTA — 이후 업데이트는 USB 없이 WiFi로 (pio run -e ota -t upload)
   ArduinoOTA.setHostname(OTA_HOSTNAME);
@@ -44,7 +57,48 @@ void loop() {
   ArduinoOTA.handle();
   haServerLoop();
   debugLoop();
+  scheduledRebootLoop();
   delay(1);
+}
+
+static void scheduledRebootInit() {
+  configTime(KST_UTC_OFFSET_SECONDS, 0, "kr.pool.ntp.org", "pool.ntp.org", "time.nist.gov");
+  rebootPrefsReady = rebootPrefs.begin("reboot", false);
+  if (rebootPrefsReady) lastRebootDay = rebootPrefs.getInt("lastDay", -1);
+  logLine("daily reboot armed: 03:00 KST");
+}
+
+static int rebootDayId(const tm& local) {
+  return (local.tm_year + 1900) * 1000 + local.tm_yday;
+}
+
+static void restartForSchedule(const char* reason) {
+  logLine(reason);
+  delay(REBOOT_LOG_FLUSH_MS);
+  ESP.restart();
+}
+
+static void scheduledRebootLoop() {
+  time_t now = time(nullptr);
+  if (now >= VALID_NTP_EPOCH) {
+    tm local;
+    localtime_r(&now, &local);
+
+    const int dayId = rebootDayId(local);
+    if (local.tm_hour == DAILY_REBOOT_HOUR &&
+        local.tm_min == DAILY_REBOOT_MINUTE &&
+        local.tm_sec < DAILY_REBOOT_WINDOW_SECONDS &&
+        dayId != lastRebootDay) {
+      lastRebootDay = dayId;
+      if (rebootPrefsReady) rebootPrefs.putInt("lastDay", dayId);
+      restartForSchedule("daily reboot: scheduled 03:00 KST");
+    }
+    return;
+  }
+
+  if (millis() >= DAILY_REBOOT_FALLBACK_MS) {
+    restartForSchedule("daily reboot: NTP unavailable, 24h fallback");
+  }
 }
 
 // ---- core0: RS485 버스 + 프록시 ----

@@ -2,4 +2,5 @@
 .vscode/
 tools/ev_capture.log
 tools/outlet_sniff.log
+tools/*.log
 tools/__pycache__/
