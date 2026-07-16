@@ -89,6 +89,9 @@ static void scheduledRebootLoop() {
         local.tm_min == DAILY_REBOOT_MINUTE &&
         local.tm_sec < DAILY_REBOOT_WINDOW_SECONDS &&
         dayId != lastRebootDay) {
+      // EV 호출 진행 중이면 이 창에서는 보류 — 리부트가 사이클을 끊어 모듈이 06에
+      // 래치되는 걸 막는다. lastRebootDay를 안 찍으므로 06이 풀리면 창 내 재시도.
+      if (evCallActive()) return;
       lastRebootDay = dayId;
       if (rebootPrefsReady) rebootPrefs.putInt("lastDay", dayId);
       restartForSchedule("daily reboot: scheduled 03:00 KST");
@@ -97,6 +100,7 @@ static void scheduledRebootLoop() {
   }
 
   if (millis() >= DAILY_REBOOT_FALLBACK_MS) {
+    if (evCallActive()) return;   // 호출 중이면 보류(다음 loop에서 재평가)
     restartForSchedule("daily reboot: NTP unavailable, 24h fallback");
   }
 }

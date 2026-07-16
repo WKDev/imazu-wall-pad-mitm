@@ -14,6 +14,9 @@ void handleMasterFrame(const Frame& f, const Respond& respond, bool allowEv);
 // 기기버스 캐시 갱신 1스텝(라운드로빈). 갱신된 STATUS를 onStatus로 흘림(HA 스트림용).
 void refreshStep(const Respond& onStatus);
 
+// EV 호출이 방금(신선하게) 진행 중이면 true — 예약 리부트가 호출 사이클을 끊지 않도록 가드.
+bool evCallActive();
+
 // 디버그/웹 상태용
 int cacheCount();
 int pollCount();

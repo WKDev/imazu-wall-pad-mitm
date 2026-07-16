@@ -21,6 +21,10 @@ static constexpr int POLL_MAX = 48;
 static PollTarget polls_[POLL_MAX];
 static int pollCursor_ = 0;
 
+// 마지막으로 관측한 EV STATUS의 STATE 바이트와 관측 시각(core1의 리부트 가드가 읽음)
+static volatile uint8_t evLastState_ = 0;
+static volatile uint32_t evLastStateMs_ = 0;
+
 void proxyInit() {
   for (auto& e : cache_) e.used = false;
   for (auto& p : polls_) p.used = false;
@@ -56,7 +60,14 @@ void handleMasterFrame(const Frame& f, const Respond& respond, bool allowEv) {
   // 그 06을 받아 단지 LAN으로 호출 송출. 가짜 주입 없이 모듈이 진짜 호출함.
   if (f.dev() == DEV_EV) {
     Frame reply;
-    if (deviceTransact(f, reply, DEVICE_TIMEOUT_MS)) respond(reply);
+    if (deviceTransact(f, reply, DEVICE_TIMEOUT_MS)) {
+      // STATUS 응답의 STATE 바이트를 기록 — 예약 리부트가 호출 사이클을 끊지 않도록.
+      if (reply.cmd() == CMD_STATUS && reply.len > 8) {
+        evLastState_ = reply.data[8];
+        evLastStateMs_ = millis();
+      }
+      respond(reply);
+    }
     return;
   }
 
@@ -110,4 +121,11 @@ int pollCount() {
   int n = 0;
   for (auto& p : polls_) if (p.used) n++;
   return n;
+}
+
+bool evCallActive() {
+  // 최근(EV_CALL_FRESH_MS 이내) 관측이 호출활성(06)일 때만 true. 오래된 관측은
+  // 버스 정지 등일 수 있어 무시 — 리부트를 영구히 막지 않도록.
+  return evLastState_ == EV_STATE_CALLING &&
+         (uint32_t)(millis() - evLastStateMs_) < EV_CALL_FRESH_MS;
 }
