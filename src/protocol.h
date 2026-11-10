@@ -4,7 +4,7 @@
 
 static constexpr uint8_t FRAME_HEADER = 0xF7;
 static constexpr uint8_t FRAME_TAIL = 0xEE;
-static constexpr uint8_t FRAME_MAX = 64;
+static constexpr uint8_t FRAME_MAX = 128;  // 보일러(0x18) STATUS가 74B라 64면 폐기됨(현장 확정)
 
 // f7 LEN TYPE DEV CMD VTYPE SUB CHANGE [STATE...] CK ee
 struct Frame {

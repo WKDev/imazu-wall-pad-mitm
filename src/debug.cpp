@@ -6,7 +6,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-struct LogMsg { char text[100]; };
+struct LogMsg { char text[200]; };  // 74B 보일러 프레임 hex(148자)도 잘리지 않게
 static QueueHandle_t logQ_ = nullptr;
 static volatile uint32_t frameCount_ = 0;
 
@@ -52,7 +52,7 @@ void logLine(const String& s) { logLine(s.c_str()); }
 void tapFrame(const char* dir, const Frame& f) {
   frameCount_++;                       // 통계 카운터는 항상 갱신
   if (!telnetActive_) return;          // 라이브 프레임 소비자(텔넷) 없으면 포맷 생략
-  char buf[100];
+  char buf[sizeof(LogMsg::text)];
   int n = snprintf(buf, sizeof(buf), "%s ", dir);
   if (n < 0 || n >= (int)sizeof(buf)) return;
   f.hexTo(buf + n, sizeof(buf) - n);   // 힙 무할당: 스택 버퍼에 직접 hex
