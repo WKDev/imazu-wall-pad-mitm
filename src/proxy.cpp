@@ -44,6 +44,18 @@ static void cachePut(const Frame& status) {
   if (e) e->status = status;
 }
 
+// CHANGE 후 같은 기기의 해당 sub, 그룹 집계(상위 니블 x0), 집계 CHANGE면 그 그룹 전체를 무효화.
+// 무효화하지 않으면 다음 refresh 차례(수 초)까지 낡은 집계가 월패드/HA로 나가 표시가 되돌아간다.
+static void cacheInvalidateGroup(uint8_t dev, uint8_t sub) {
+  const uint8_t group = sub & 0xF0;
+  const bool aggregate = (sub & 0x0F) == 0;
+  for (auto& e : cache_) {
+    if (!e.used || (e.key >> 8) != dev) continue;
+    const uint8_t s = e.key & 0xFF;
+    if (s == sub || s == group || (aggregate && (s & 0xF0) == group)) e.used = false;
+  }
+}
+
 static void learnPoll(const Frame& scan) {
   uint16_t key = scan.key();
   for (auto& p : polls_)
@@ -86,10 +98,12 @@ void handleMasterFrame(const Frame& f, const Respond& respond, bool allowEv) {
     return;
   }
 
-  if (f.cmd() == CMD_CHANGE) {                 // 제어 명령 → 실기기로 전달 + 결과 캐시
+  if (f.cmd() == CMD_CHANGE) {                 // 제어 명령 → 실기기로 전달 + 관련 캐시 무효화
     Frame reply;
     if (deviceTransact(f, reply, DEVICE_TIMEOUT_MS)) {
-      cachePut(reply);
+      // 응답은 그대로 돌려주되 캐시에는 넣지 않는다(보일러 온도 응답은 VTYPE이 SCAN과 달라
+      // 같은 키에 넣으면 SCAN 응답이 바뀐다). 다음 SCAN은 캐시 미스로 실기기에서 새로 읽는다.
+      cacheInvalidateGroup(f.dev(), f.sub());
       respond(reply);
     }
     return;
